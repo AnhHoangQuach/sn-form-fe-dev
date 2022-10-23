@@ -15,18 +15,29 @@ const PageWithObserver = ({ pageNumber, setPageVisibility, setTimers, ...otherPr
   const onIntersectionChange = useCallback(
     ([entry]) => {
       setTimers((timers) => {
-        const timer = timers[pageNumber] || { total: 0, start: null, count: 0 }
+        const timer = timers[pageNumber] || { durations: [], start: null, views: 0 }
 
         if (entry.isIntersecting) {
-          timer.count++
           timer.start = new Date()
+          timer.durations[timer.views] = {
+            start:
+              new Date().getHours() + ':' + new Date().getMinutes() + ':' + new Date().getSeconds(),
+            end: null,
+          }
+
+          timer.views++
         } else if (timer.start) {
-          timer.total += new Date().getTime() - timer.start.getTime()
+          timer.durations[timer.views - 1] = {
+            ...timer.durations[timer.views - 1],
+            end:
+              new Date().getHours() + ':' + new Date().getMinutes() + ':' + new Date().getSeconds(),
+          }
           timer.start = null
         }
 
         return { ...timers, [pageNumber]: timer }
       })
+
       setPageVisibility(pageNumber, entry.isIntersecting)
     },
     [pageNumber, setPageVisibility, setTimers]
@@ -53,6 +64,8 @@ const App = () => {
       [pageNumber]: { isIntersecting, timer },
     }))
   }, [])
+
+  console.log(timers)
 
   return (
     <div className="flex items-center justify-center bg-[#262626]">
