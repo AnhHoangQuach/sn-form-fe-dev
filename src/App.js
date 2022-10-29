@@ -1,7 +1,8 @@
 import demoPDF from './demo.pdf'
-import React, { useCallback, useState } from 'react'
+import React, { useCallback, useState, useMemo } from 'react'
 import { pdfjs, Document, Page } from 'react-pdf'
-import { useIntersectionObserver } from 'hooks'
+import { useIntersectionObserver, usePageVisibility } from 'hooks'
+import { toNumericPairs } from 'utils/common'
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.js`
 
@@ -19,10 +20,16 @@ const PageWithObserver = ({ pageNumber, setPageVisibility, setTimers, ...otherPr
 
         if (entry.isIntersecting) {
           timer.start = new Date()
-          timer.durations[timer.views] = {
-            start:
-              new Date().getHours() + ':' + new Date().getMinutes() + ':' + new Date().getSeconds(),
-            end: null,
+          if (!timer.durations[timer.views]?.start) {
+            timer.durations[timer.views] = {
+              start:
+                new Date().getHours() +
+                ':' +
+                new Date().getMinutes() +
+                ':' +
+                new Date().getSeconds(),
+              end: null,
+            }
           }
 
           timer.views++
@@ -54,6 +61,8 @@ const App = () => {
   const [visiblePages, setVisiblePages] = useState({})
   const [timers, setTimers] = React.useState({})
 
+  const { count, isVisible } = usePageVisibility()
+
   function onDocumentLoadSuccess({ numPages }) {
     setNumPages(numPages)
   }
@@ -64,6 +73,37 @@ const App = () => {
       [pageNumber]: { isIntersecting, timer },
     }))
   }, [])
+
+  useMemo(() => {
+    if (isVisible && count >= 1) {
+      const visiblePagesCurrent = toNumericPairs(visiblePages).filter(
+        (page) => page[1].isIntersecting
+      )
+
+      visiblePagesCurrent.forEach((page, index) => {
+        const pageNumber = page[0]
+        setTimers((timers) => {
+          const timer = timers[pageNumber] || { durations: [], start: null, views: 0 }
+
+          timer.durations[timer.durations.length - 1] = {
+            ...timer.durations[timer.durations.length - 1],
+            end:
+              new Date().getHours() + ':' + new Date().getMinutes() + ':' + new Date().getSeconds(),
+          }
+
+          timer.durations[timer.durations.length] = {
+            start:
+              new Date().getHours() + ':' + new Date().getMinutes() + ':' + new Date().getSeconds(),
+            end: null,
+          }
+
+          timer.views++
+
+          return { ...timers, [pageNumber]: timer }
+        })
+      })
+    }
+  }, [isVisible, count])
 
   console.log(timers)
 
